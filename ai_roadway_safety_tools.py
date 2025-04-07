@@ -1,97 +1,59 @@
-import numpy as np
 import pandas as pd
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score
-import random
-import matplotlib.pyplot as plt
+from sklearn.metrics import accuracy_score, mean_squared_error
+import numpy as np
 
-def predict_high_risk_zones(traffic_data):
-    traffic_data = pd.get_dummies(traffic_data, columns=['weather_condition', 'time_of_day'])
-    features = traffic_data[['speed', 'traffic_density'] + [col for col in traffic_data.columns if col.startswith('weather_condition') or col.startswith('time_of_day')]]
-    labels = traffic_data['accident_occurred']
-    X_train, X_test, y_train, y_test = train_test_split(features, labels, test_size=0.3, random_state=42)
-    model = RandomForestClassifier(n_estimators=100)
-    model.fit(X_train, y_train)
-    predictions = model.predict(X_test)
-    accuracy = accuracy_score(y_test, predictions)
-    return accuracy, model.predict(features)
+# Load the US Accidents dataset
+us_accidents = pd.read_csv('US_Accidents_March23.csv')
 
-def obstacle_detection(vehicle_data):
-    obstacles = ['car', 'pedestrian', 'traffic_light', 'animal', 'none']
-    detected_obstacle = random.choice(obstacles)
-    if detected_obstacle != 'none':
-        print(f"Obstacle detected: {detected_obstacle}")
-        return True
-    return False
+# Data preprocessing
+us_accidents = us_accidents[['Start_Lat', 'Start_Lng', 'Severity', 'Temperature(F)', 'Humidity(%)', 'Visibility(mi)', 'Wind_Speed(mph)', 'Precipitation(in)', 'Weather_Condition']]
+us_accidents = us_accidents.dropna()
 
-def accident_prediction(historical_data):
-    historical_data = pd.get_dummies(historical_data, columns=['weather_conditions', 'road_type', 'time_of_day'])
-    features = historical_data[['traffic_volume'] + [col for col in historical_data.columns if col.startswith('weather_conditions') or col.startswith('road_type') or col.startswith('time_of_day')]]
-    labels = historical_data['accident_occurrence']
-    X_train, X_test, y_train, y_test = train_test_split(features, labels, test_size=0.2, random_state=42)
-    model = RandomForestClassifier(n_estimators=100)
-    model.fit(X_train, y_train)
-    predictions = model.predict(X_test)
-    accuracy = accuracy_score(y_test, predictions)
-    return accuracy, model.predict(historical_data[['traffic_volume'] + [col for col in historical_data.columns if col.startswith('weather_conditions') or col.startswith('road_type') or col.startswith('time_of_day')]])
+# Encoding categorical variables
+us_accidents = pd.get_dummies(us_accidents, columns=['Weather_Condition'])
 
-def collect_real_time_traffic_data():
-    real_time_data = {
-        'speed': random.randint(20, 80),
-        'traffic_density': random.randint(1, 100),
-        'weather_condition': random.choice(['clear', 'rainy', 'foggy', 'snowy']),
-        'time_of_day': random.choice(['morning', 'afternoon', 'evening', 'night'])
-    }
-    return pd.DataFrame([real_time_data])
+# Splitting data into features and labels
+X = us_accidents.drop(columns=['Severity'])
+y = us_accidents['Severity']
 
-def ethical_decision_in_case_of_accident(vehicle_speed, pedestrian_distance):
-    if vehicle_speed > 50 and pedestrian_distance < 10:
-        decision = "Braking"
-    else:
-        decision = "Maintain Speed"
-    print(f"Decision: {decision}")
-    return decision
+# Splitting into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
 
-traffic_data = pd.DataFrame({
-    'speed': np.random.randint(20, 100, 100),
-    'traffic_density': np.random.randint(1, 100, 100),
-    'weather_condition': np.random.choice(['clear', 'rainy', 'foggy', 'snowy'], 100),
-    'time_of_day': np.random.choice(['morning', 'afternoon', 'evening', 'night'], 100),
-    'accident_occurred': np.random.choice([0, 1], 100)
-})
+# Training the RandomForestClassifier
+clf = RandomForestClassifier(n_estimators=100, random_state=42)
+clf.fit(X_train, y_train)
 
-accuracy, predictions = predict_high_risk_zones(traffic_data)
-print(f"Traffic Risk Zone Prediction Accuracy: {accuracy * 100:.2f}%\n")
+# Predicting and evaluating
+y_pred = clf.predict(X_test)
+accuracy = accuracy_score(y_test, y_pred)
+print(f'Accident Severity Prediction Accuracy: {accuracy * 100:.2f}%')
 
-obstacle_detected = obstacle_detection(None)
-if obstacle_detected:
-    print("Obstacle Avoidance System Activated\n")
+# Load the Traffic Prediction dataset
+traffic_data = pd.read_csv('traffic.csv')
 
-historical_data = pd.DataFrame({
-    'traffic_volume': np.random.randint(100, 1000, 100),
-    'weather_conditions': np.random.choice(['clear', 'rainy', 'foggy', 'snowy'], 100),
-    'road_type': np.random.choice(['highway', 'city', 'rural'], 100),
-    'time_of_day': np.random.choice(['morning', 'afternoon', 'evening', 'night'], 100),
-    'accident_occurrence': np.random.choice([0, 1], 100)
-})
+# Data preprocessing
+traffic_data = traffic_data[['Junction', 'DateTime', 'Vehicles']]
+traffic_data['DateTime'] = pd.to_datetime(traffic_data['DateTime'])
+traffic_data['Hour'] = traffic_data['DateTime'].dt.hour
+traffic_data = traffic_data.drop(columns=['DateTime'])
 
-accident_accuracy, accident_predictions = accident_prediction(historical_data)
-print(f"Accident Prediction Accuracy: {accident_accuracy * 100:.2f}%\n")
+# Encoding categorical variables
+traffic_data = pd.get_dummies(traffic_data, columns=['Junction'])
 
-real_time_data = collect_real_time_traffic_data()
-print("Real-Time Traffic Data:")
-print(real_time_data.to_string(index=False))
+# Splitting data into features and labels
+X_traffic = traffic_data.drop(columns=['Vehicles'])
+y_traffic = traffic_data['Vehicles']
 
-vehicle_speed = 60
-pedestrian_distance = 8
-ethical_decision_in_case_of_accident(vehicle_speed, pedestrian_distance)
+# Splitting into training and testing sets
+X_train_traffic, X_test_traffic, y_train_traffic, y_test_traffic = train_test_split(X_traffic, y_traffic, test_size=0.3, random_state=42)
 
-plt.figure(figsize=(10, 6))
-plt.hist(traffic_data['traffic_density'], bins=15, alpha=0.7, color='purple', edgecolor='black')
-plt.title("Traffic Density Distribution", fontsize=16)
-plt.xlabel("Traffic Density", fontsize=14)
-plt.ylabel("Frequency", fontsize=14)
-plt.grid(True)
-plt.xticks(np.arange(0, 101, step=10))
-plt.show()
+# Training the RandomForestRegressor
+reg = RandomForestRegressor(n_estimators=100, random_state=42)
+reg.fit(X_train_traffic, y_train_traffic)
+
+# Predicting and evaluating
+y_pred_traffic = reg.predict(X_test_traffic)
+mse = mean_squared_error(y_test_traffic, y_pred_traffic)
+print(f'Traffic Volume Prediction Mean Squared Error: {mse:.2f}')
